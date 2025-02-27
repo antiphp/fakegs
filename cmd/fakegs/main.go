@@ -19,6 +19,7 @@ const (
 	flagReadyAfter     = "ready-after"
 	flagAllocatedAfter = "allocated-after"
 	flagShutdownAfter  = "shutdown-after"
+	flagHealthReport   = "health-report-every"
 
 	catExit   = "Exit behavior"
 	catAgones = "Agones integration"
@@ -70,6 +71,13 @@ var flags = cmd.Flags{
 		EnvVars:  []string{strcase.ToSNAKE(flagShutdownAfter)},
 		Category: catAgones,
 	},
+	&cli.DurationFlag{
+		Name: flagHealthReport,
+		Usage: "Period after which to send the Agones health report. " +
+			"The first health report is sent after the configured duration, or if an Agones status timer is configured, right after the first transition.",
+		EnvVars:  []string{strcase.ToSNAKE(flagHealthReport)},
+		Category: catAgones,
+	},
 }.Merge(cmd.LogFlags)
 
 func main() {
@@ -80,9 +88,9 @@ func main() {
 	app.Action = run
 
 	if err := app.RunContext(context.Background(), os.Args); err != nil {
-		var exitErr *exitHookError
+		var exitErr *exitError
 		if errors.As(err, &exitErr) {
-			exitErr.hookFn()
+			exitErr.runHooks()
 		}
 		os.Exit(1)
 	}

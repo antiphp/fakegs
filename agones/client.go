@@ -1,3 +1,4 @@
+// Package agones handles Agones communication.
 package agones
 
 import (
@@ -34,6 +35,9 @@ const (
 // Client is the Agones client.
 type Client struct {
 	sdk sdk.SDKClient
+
+	once   sync.Once
+	health sdk.SDK_HealthClient
 
 	mu       sync.Mutex
 	listener []chan<- *sdk.GameServer
@@ -74,6 +78,22 @@ func (a *Client) Close() {
 	close(a.doneCh)
 	a.wg.Wait()
 	close(a.watchCh)
+}
+
+// ReportHealth reports the health of the game server.
+func (a *Client) ReportHealth(ctx context.Context) error {
+	var err error
+	a.once.Do(func() {
+		a.health, err = a.sdk.Health(ctx)
+	})
+	if err != nil {
+		return fmt.Errorf("creating health client: %w", err)
+	}
+
+	if err = a.health.Send(&sdk.Empty{}); err != nil {
+		return fmt.Errorf("sending health report: %w", err)
+	}
+	return nil
 }
 
 // UpdateState updates the state.
